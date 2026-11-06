@@ -1,1556 +1,605 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>ApeCity 1111 — Living NFT World Prototype</title>
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Google Fonts: Press Start 2P for Retro Headers & Inter for clean UI -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <title>ApeChain SimCity 2.5D — Isometric Prototype</title>
   <style>
-    * {
-      box-sizing: border-box;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
+    :root {
+      --bg: #0d131a;
+      --panel: rgba(16, 24, 36, 0.9);
+      --border: #2c425c;
+      --accent: #f5b041;
+      --green: #2ecc71;
+      --text: #ecf0f1;
     }
+    * { box-sizing: border-box; user-select: none; -webkit-user-select: none; }
     body, html {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background-color: #0b0f19;
-      font-family: 'Inter', sans-serif;
-      color: #f8fafc;
+      margin: 0; padding: 0; width: 100%; height: 100%;
+      overflow: hidden; background: var(--bg);
+      font-family: 'Segoe UI', system-ui, sans-serif; color: var(--text);
     }
-    .font-pixel {
-      font-family: 'Press Start 2P', monospace;
-    }
-    /* Crisp Retro Pixel Scaling - Prevents mobile GPU blur & saves VRAM */
     canvas {
-      image-rendering: -moz-crisp-edges;
-      image-rendering: -webkit-crisp-edges;
-      image-rendering: pixelated;
-      image-rendering: crisp-edges;
-      display: block;
+      display: block; width: 100vw; height: 100vh;
+      touch-action: none;
     }
-    /* Custom Retro Scrollbar */
-    ::-webkit-scrollbar {
-      width: 6px;
-      height: 6px;
+    /* Top HUD */
+    .hud-top {
+      position: fixed; top: 10px; left: 10px; right: 10px;
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between;
+      pointer-events: none; z-index: 10;
     }
-    ::-webkit-scrollbar-track {
-      background: #0f172a;
+    .hud-box {
+      background: var(--panel); border: 1px solid var(--border);
+      padding: 6px 12px; border-radius: 8px; font-size: 12px;
+      display: flex; align-items: center; gap: 8px;
+      pointer-events: auto; backdrop-filter: blur(6px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
-    ::-webkit-scrollbar-thumb {
-      background: #3b82f6;
-      border-radius: 3px;
+    .badge {
+      background: #1b2838; color: var(--accent);
+      padding: 2px 6px; border-radius: 4px; font-weight: 700; font-family: monospace;
     }
-    @keyframes marquee {
-      0% { transform: translateX(100%); }
-      100% { transform: translateX(-100%); }
+    button, select {
+      background: #1e2f44; color: var(--text); border: 1px solid var(--border);
+      padding: 5px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+      font-weight: 600;
     }
-    .animate-ticker {
-      display: inline-block;
-      white-space: nowrap;
-      animation: marquee 28s linear infinite;
+    button:hover, button.active { background: var(--accent); color: #111; border-color: var(--accent); }
+    /* Deed Inspector Modal */
+    #inspector {
+      position: fixed; bottom: 52px; right: 12px; width: 270px;
+      background: var(--panel); border: 1px solid var(--accent);
+      border-radius: 10px; padding: 12px; z-index: 20;
+      display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.6);
     }
-    .pixel-border {
-      box-shadow: 0 4px 0 #000000, 0 -2px 0 rgba(255,255,255,0.12) inset;
+    #inspector h4 { margin: 0 0 6px 0; color: var(--accent); font-size: 14px; }
+    #inspector p { margin: 4px 0; font-size: 12px; color: #bdc3c7; }
+    /* 24/7 YouTube Stream Ticker */
+    .ticker {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 34px;
+      background: rgba(10, 15, 24, 0.95); border-top: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 12px; gap: 10px;
+      font-size: 12px; z-index: 10;
     }
+    .live-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: #e74c3c;
+      box-shadow: 0 0 8px #e74c3c; animation: pulse 1.2s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
   </style>
 </head>
-<body class="relative flex flex-col w-full h-full select-none bg-slate-950">
+<body>
 
-  <!-- TOP HUD BAR -->
-  <header class="z-20 flex flex-wrap items-center justify-between gap-2 px-3 py-2 border-b bg-slate-900/95 border-slate-800 backdrop-blur-md">
-    <!-- Brand & Collection Status -->
-    <div class="flex items-center gap-2.5">
-      <div class="relative flex items-center justify-center w-9 h-9 rounded-lg bg-amber-500/20 border border-amber-400/40">
-        <canvas id="hudAvatarCanvas" width="24" height="24" class="w-7 h-7"></canvas>
-        <span class="absolute -bottom-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-slate-900"></span>
-      </div>
-      <div>
-        <div class="flex items-center gap-2">
-          <h1 class="text-xs sm:text-sm font-pixel text-amber-400 tracking-tight">APECITY 1111</h1>
-          <span class="px-1.5 py-0.5 text-[10px] font-bold uppercase rounded bg-blue-600/30 text-blue-300 border border-blue-500/40">ApeChain</span>
-        </div>
-        <p id="activeCitizenLabel" class="text-[11px] text-slate-300 font-medium">Citizen #0001 • Captain Otter</p>
-      </div>
+  <!-- Top UI Bar -->
+  <div class="hud-top">
+    <div class="hud-box">
+      <span>🏙️ <b>ApeCity 2.5D Iso</b></span>
+      <span class="badge" id="fpsCounter">60 FPS</span>
+      <span class="badge" id="cullCounter">0 Tiles Drawn</span>
+      <span class="badge">Atlas RAM: 1.4 MB</span>
     </div>
 
-    <!-- Mobile RAM / Culling Telemetry Pill -->
-    <div class="hidden md:flex items-center gap-3 px-3 py-1 text-xs rounded-full bg-slate-950/90 border border-slate-800 text-slate-300">
-      <span class="flex items-center gap-1.5">
-        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-        <span>Culled Tiles: <strong id="hudTileMetric" class="text-emerald-400 font-mono">0 / 2400</strong></span>
-      </span>
-      <span class="text-slate-600">|</span>
-      <span>Atlas RAM: <strong class="text-cyan-400 font-mono">0.38 MB</strong></span>
-      <span class="text-slate-600">|</span>
-      <span>Supabase: <strong id="hudHzMetric" class="text-amber-300 font-mono">10Hz Sync</strong></span>
-    </div>
-
-    <!-- Right Action Buttons -->
-    <div class="flex items-center gap-1.5 sm:gap-2">
-      <!-- Balances -->
-      <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-800 text-xs font-bold">
-        <span class="text-amber-400">🪙</span>
-        <span id="apeBalanceText" class="text-amber-300 font-mono">250 $APE</span>
-      </div>
-
-      <!-- AI Autopilot Toggle -->
-      <button id="btnToggleAI" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border bg-emerald-600/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-600/30 active:scale-95">
-        🎮 Mode: Player
-      </button>
-
-      <!-- 24/7 Stream Director Mode Toggle -->
-      <button id="btnToggleStream" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-700 active:scale-95">
-        📺 24/7 Stream
-      </button>
-
-      <!-- GitHub + Supabase Guide Button -->
-      <button id="btnOpenGitHubGuide" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm transition-all active:scale-95 flex items-center gap-1">
-        <span>🚀</span>
-        <span class="hidden sm:inline">GitHub + Supabase Setup</span>
-        <span class="sm:hidden">Setup</span>
-      </button>
-    </div>
-  </header>
-
-  <!-- MAIN INTERACTIVE WORLD VIEWPORT -->
-  <main class="relative flex-1 w-full h-full overflow-hidden bg-slate-950">
-    <!-- Primary Game Canvas -->
-    <canvas id="worldCanvas" class="w-full h-full cursor-pointer"></canvas>
-
-    <!-- 24/7 LIVE STREAM OVERLAY BADGE (Hidden unless Stream Mode is Active) -->
-    <div id="streamOverlayBadge" class="hidden pointer-events-none absolute top-3 left-3 z-10 flex flex-col gap-1.5">
-      <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-red-600/90 text-white font-pixel text-[10px] shadow-lg border border-red-400">
-        <span class="w-2.5 h-2.5 rounded-full bg-white animate-ping"></span>
-        <span>LIVE 24/7 • YOUTUBE DIRECTOR CAM</span>
-      </div>
-      <div id="streamCameraTarget" class="px-2.5 py-1 rounded bg-slate-900/90 border border-slate-700 text-[11px] text-amber-300 font-mono">
-        🎥 Tracking: Citizen #0001 (Captain Otter)
-      </div>
-    </div>
-
-    <!-- CHARACTER SWITCHER & LANDMARK QUICK JUMP (Top Right Floating Panel) -->
-    <div class="absolute top-3 right-3 z-10 flex flex-col items-end gap-2">
-      <!-- Character Switcher -->
-      <div class="p-1.5 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-md shadow-xl flex items-center gap-1">
-        <span class="text-[10px] font-bold uppercase text-slate-400 px-1.5 hidden sm:inline">NFT:</span>
-        <div id="characterSelectorBar" class="flex items-center gap-1">
-          <!-- Populated dynamically with the 6 NFT Character Avatars -->
-        </div>
-      </div>
-
-      <!-- Fast Travel / Camera Zoom Controls -->
-      <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-900/90 border border-slate-800 backdrop-blur-md shadow-xl">
-        <button id="btnZoomOut" title="Zoom Out" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm flex items-center justify-center active:scale-90">−</button>
-        <span id="zoomLevelText" class="px-2 text-[11px] font-mono text-slate-300">2x</span>
-        <button id="btnZoomIn" title="Zoom In" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-sm flex items-center justify-center active:scale-90">+</button>
-        <div class="w-px h-5 bg-slate-700 mx-0.5"></div>
-        <button id="btnJumpCasino" class="px-2 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 text-[11px] font-semibold">🎰 Casino</button>
-        <button id="btnJumpMyDeed" class="px-2 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold">🏠 My Deed</button>
-      </div>
-    </div>
-
-    <!-- MOBILE TOUCH D-PAD (Bottom Left) -->
-    <div class="
-      absolute bottom-12 left-4 z-10
-      w-32 h-32
-      grid grid-cols-3 grid-rows-3 gap-1
-      opacity-85 hover:opacity-100 transition-opacity
-    ">
-      <div></div>
-      <button data-dir="up" class="dpad-btn rounded-t-xl bg-slate-900/90 border border-slate-700 text-white flex items-center justify-center active:bg-blue-600 shadow-lg">▲</button>
-      <div></div>
-      <button data-dir="left" class="dpad-btn rounded-l-xl bg-slate-900/90 border border-slate-700 text-white flex items-center justify-center active:bg-blue-600 shadow-lg">◀</button>
-      <div class="rounded-lg bg-slate-950/90 border border-slate-800 flex items-center justify-center text-[9px] font-mono text-slate-400">MOVE</div>
-      <button data-dir="right" class="dpad-btn rounded-r-xl bg-slate-900/90 border border-slate-700 text-white flex items-center justify-center active:bg-blue-600 shadow-lg">▶</button>
-      <div></div>
-      <button data-dir="down" class="dpad-btn rounded-b-xl bg-slate-900/90 border border-slate-700 text-white flex items-center justify-center active:bg-blue-600 shadow-lg">▼</button>
-      <div></div>
-    </div>
-
-    <!-- CONTEXTUAL INTERACTION BUTTON (Bottom Right) -->
-    <div class="absolute bottom-12 right-4 z-10 flex flex-col items-end gap-2">
-      <div id="nearbyPrompt" class="hidden px-3 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs shadow-xl cursor-pointer animate-bounce flex items-center gap-2">
-        <span id="nearbyPromptText">Tap to Enter APE CASINO</span>
-      </div>
-      <div class="px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 backdrop-blur-sm">
-        💡 Tap any Road to walk • Tap any <span class="text-emerald-400 font-semibold">Plot Deed</span> or <span class="text-amber-400 font-semibold">Building</span> to inspect
-      </div>
-    </div>
-
-    <!-- 24/7 STREAM LIVE NEWS TICKER (Bottom Bar) -->
-    <div class="absolute bottom-0 inset-x-0 z-10 h-8 bg-slate-950/95 border-t border-slate-800 flex items-center overflow-hidden">
-      <div class="px-3 h-full bg-amber-500 text-slate-950 font-pixel text-[9px] flex items-center shrink-0 z-10">
-        APECITY WIRE
-      </div>
-      <div class="flex-1 overflow-hidden relative h-full flex items-center">
-        <div id="newsTickerText" class="animate-ticker text-xs text-slate-300 font-mono">
-          📢 Welcome to ApeCity 1111! • Citizen #0001 (Captain Otter) docked at Harbor Pier • Citizen #0420 won 120 $APE at the Neon Slots • 1,111 Residential Deeds ready for Free Claim on ApeChain • Citizen #0888 (Zombie Wizard) is brewing potions near Central Plaza • Mobile Viewport Culling active: 0 OOM crashes!
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- MODAL 1: RESIDENTIAL PLOT DEED INSPECTOR -->
-  <div id="deedModal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-    <div class="w-full max-w-md rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-3 bg-slate-950 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-          <span class="text-lg">📜</span>
-          <h2 id="deedModalTitle" class="text-xs sm:text-sm font-pixel text-amber-400">DEED #0001</h2>
-        </div>
-        <button id="btnCloseDeedModal" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">✕</button>
-      </div>
-
-      <div class="p-4 space-y-4">
-        <div class="flex items-center gap-4 p-3 rounded-xl bg-slate-950 border border-slate-800">
-          <div id="deedPreviewIcon" class="w-16 h-16 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-3xl shrink-0">
-            🏡
-          </div>
-          <div class="space-y-1 text-xs">
-            <div class="text-slate-400">Zone Classification: <span id="deedZoneType" class="text-white font-semibold">Suburban House</span></div>
-            <div class="text-slate-400">Deed Owner: <span id="deedOwnerName" class="text-emerald-400 font-semibold">Citizen #0001 (Captain Otter)</span></div>
-            <div class="text-slate-400">Passive Yield: <span id="deedYieldText" class="text-amber-300 font-mono">+15 $APE / day</span></div>
-            <div class="text-slate-400">Grid Coordinates: <span id="deedCoordsText" class="text-slate-300 font-mono">(X: 12, Y: 8)</span></div>
-          </div>
-        </div>
-
-        <p id="deedStatusDesc" class="text-xs text-slate-300 leading-relaxed">
-          Each of the 1,111 ApeChain characters can claim a deed to a residential plot or apartment unit. Offline AI citizens automatically return to their deeded home to rest.
-        </p>
-
-        <div class="grid grid-cols-2 gap-2 pt-1">
-          <button id="btnClaimOrUpgradeDeed" class="col-span-2 sm:col-span-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all shadow-lg">
-            ⚡ Mint / Claim Deed (Free)
-          </button>
-          <button id="btnWalkToDeed" class="col-span-2 sm:col-span-1 py-2.5 px-4 rounded-xl font-bold text-xs bg-blue-600 hover:bg-blue-500 text-white transition-all">
-            🚶 Walk Character Here
-          </button>
-        </div>
-      </div>
+    <div class="hud-box">
+      <label for="charSelect">Citizen:</label>
+      <select id="charSelect">
+        <option value="0">#0001 Captain Otter</option>
+        <option value="1">#0420 USA Hoodie</option>
+        <option value="2">#0777 Cool Redhead</option>
+        <option value="3">#0888 Zombie Wizard</option>
+        <option value="4">#0999 Hazmat Rogue</option>
+        <option value="5">#1111 Royal 3D</option>
+      </select>
+      <button id="btnAuto" class="active">🤖 AI Autopilot: ON</button>
+      <button id="btnStream">🎥 24/7 Stream Cam</button>
     </div>
   </div>
 
-  <!-- MODAL 2: APE CASINO & CITY LANDMARK INTERACTION -->
-  <div id="landmarkModal" class="hidden fixed inset-0 z-30 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
-    <div class="w-full max-w-md rounded-2xl bg-slate-900 border border-amber-500/40 shadow-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-3 bg-slate-950 border-b border-slate-800">
-        <h2 id="landmarkModalTitle" class="text-xs sm:text-sm font-pixel text-amber-400">🎰 APECHAIN CASINO</h2>
-        <button id="btnCloseLandmarkModal" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">✕</button>
-      </div>
-
-      <div class="p-4 space-y-4">
-        <p id="landmarkModalDesc" class="text-xs text-slate-300">
-          Welcome to the Downtown Ape Casino! Both active players and offline AI citizens visit here to test their luck.
-        </p>
-
-        <!-- Slot Machine Mini-Game Box -->
-        <div id="casinoSlotSection" class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center space-y-3">
-          <div class="flex justify-center gap-3 text-3xl py-2 bg-slate-900 rounded-lg border border-slate-800 font-mono" id="slotReels">
-            <span>🦍</span><span>💎</span><span>🍒</span>
-          </div>
-          <div id="slotResultText" class="text-xs font-bold text-amber-300">Spin for 10 $APE to win up to 150 $APE!</div>
-          <button id="btnSpinSlots" class="w-full py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-pixel text-xs shadow-lg active:scale-95 transition-transform">
-            SPIN SLOTS (10 $APE)
-          </button>
-        </div>
-      </div>
+  <!-- Plot / Deed Inspector Popup -->
+  <div id="inspector">
+    <h4 id="inspTitle">Plot Deed #000</h4>
+    <p id="inspType">Type: Suburban Pool Estate</p>
+    <p id="inspOwner">Owner: Unclaimed (Free ApeChain Mint)</p>
+    <div style="display:flex; gap:6px; margin-top:8px;">
+      <button id="btnClaim" style="flex:1; background:var(--green); color:#000; border:none;">Mint Deed</button>
+      <button onclick="document.getElementById('inspector').style.display='none'">Close</button>
     </div>
   </div>
 
-  <!-- MODAL 3: STEP-BY-STEP GITHUB + SUPABASE LAUNCH GUIDE -->
-  <div id="githubModal" class="hidden fixed inset-0 z-40 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-    <div class="w-full max-w-2xl max-h-[88vh] flex flex-col rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl overflow-hidden">
-      <div class="flex items-center justify-between px-5 py-3.5 bg-slate-950 border-b border-slate-800">
-        <div class="flex items-center gap-2">
-          <span class="text-lg">🚀</span>
-          <h2 class="text-xs sm:text-sm font-pixel text-indigo-400">HOW TO LAUNCH ON GITHUB + SUPABASE</h2>
-        </div>
-        <button id="btnCloseGitHubModal" class="w-7 h-7 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center">✕</button>
-      </div>
-
-      <div class="p-5 overflow-y-auto space-y-5 text-xs text-slate-300 leading-relaxed">
-        <!-- Step 1 -->
-        <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded bg-indigo-600 text-[10px]">STEP 1</span>
-            Host on GitHub Pages (Takes 2 Minutes & Free)
-          </h3>
-          <ol class="list-decimal list-inside space-y-1 text-slate-300">
-            <li>Go to <strong>github.com/new</strong> and create a repository named <code class="text-amber-300">apecity-1111</code>.</li>
-            <li>Upload this single file as <code class="text-emerald-400">index.html</code> to the main branch.</li>
-            <li>In your repo, click <strong>Settings → Pages</strong>, and under <strong>Branch</strong> select <code class="text-amber-300">main</code> and click Save.</li>
-            <li>Your live mobile-ready game URL will be live at <code class="text-cyan-300">https://your-username.github.io/apecity-1111/</code>!</li>
-          </ol>
-        </div>
-
-        <!-- Step 2 -->
-        <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-          <div class="flex items-center justify-between">
-            <h3 class="text-sm font-bold text-white flex items-center gap-2">
-              <span class="px-2 py-0.5 rounded bg-emerald-600 text-[10px]">STEP 2</span>
-              Paste this SQL into your Supabase SQL Editor
-            </h3>
-            <button id="btnCopySQL" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 text-[11px] font-semibold border border-slate-700">
-              📋 Copy SQL
-            </button>
-          </div>
-          <p class="text-slate-400">This creates your 1,111 character state table and residential deed table:</p>
-          <pre id="sqlCodeBlock" class="p-3 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono text-emerald-300 overflow-x-auto">-- 1. Table for the 1,111 Characters (Player or AI Autopilot)
-create table citizens (
-  token_id int primary key,
-  name text not null,
-  owner_wallet text,
-  grid_x int default 20,
-  grid_y int default 15,
-  is_ai_autopilot boolean default true,
-  ape_balance int default 250,
-  last_action text default 'Wandering Downtown',
-  updated_at timestamptz default now()
-);
-
--- 2. Table for the 1,111 Land/Apartment Deeds
-create table plot_deeds (
-  deed_id int primary key,
-  zone_type text default 'Suburban House', -- 'House' or 'Apartment'
-  grid_x int not null,
-  grid_y int not null,
-  claimed_by_token int references citizens(token_id),
-  building_level int default 1
-);
-
--- Enable Realtime broadcasts for 10Hz mobile movement sync
-alter publication supabase_realtime add table citizens;
-alter publication supabase_realtime add table plot_deeds;</pre>
-        </div>
-
-        <!-- Step 3 -->
-        <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
-          <h3 class="text-sm font-bold text-white flex items-center gap-2">
-            <span class="px-2 py-0.5 rounded bg-amber-600 text-[10px]">STEP 3</span>
-            Why This Engine Never Crashes on Mobile Safari/Chrome
-          </h3>
-          <ul class="list-disc list-inside space-y-1 text-slate-300">
-            <li><strong>Single Offscreen Sprite Atlas:</strong> All 6 NFT character archetypes + buildings are procedurally baked into 1 shared texture sheet on boot (<code class="text-cyan-300">0.38 MB RAM</code>).</li>
-            <li><strong>Strict Viewport Camera Culling:</strong> Only the tiles inside the phone screen bounds are drawn each frame.</li>
-            <li><strong>10Hz Realtime Throttle:</strong> Movement packets broadcast every 100ms with linear interpolation in between.</li>
-          </ul>
-        </div>
-      </div>
-    </div>
+  <!-- 24/7 Livestream News Ticker -->
+  <div class="ticker">
+    <div class="live-dot"></div>
+    <b style="color:#e74c3c;">LIVE 24/7</b>
+    <span id="newsText">Drag to pan the isometric city, scroll/pinch to zoom, or tap any building to inspect its ApeChain Deed!</span>
   </div>
 
-  <script>
-    /********************************************************************
-     * 1. DEFINE THE USER'S 6 NFT CHARACTER ARCHETYPES (FROM UPLOADED ART)
-     ********************************************************************/
-    const NFT_CITIZENS = [
-      {
-        tokenId: 1,
-        code: '#0001',
-        name: 'Captain Otter',
-        trait: 'Sea Captain',
-        favoriteLandmark: 'HARBOR DOCKS',
-        homeDeedId: 1,
-        x: 21,
-        y: 16,
-        targetX: 21,
-        targetY: 16,
-        speech: 'Ahoy! Checking the tides on ApeChain!',
-        speechTimer: 160,
-        palette: 'otter'
-      },
-      {
-        tokenId: 420,
-        code: '#0420',
-        name: 'USA Hoodie',
-        trait: 'Street Skater',
-        favoriteLandmark: 'APE CASINO',
-        homeDeedId: 420,
-        x: 18,
-        y: 14,
-        targetX: 18,
-        targetY: 14,
-        speech: 'Heading to the Casino slots!',
-        speechTimer: 90,
-        palette: 'usa'
-      },
-      {
-        tokenId: 777,
-        code: '#0777',
-        name: 'Cool Redhead',
-        trait: 'Nightlife VIP',
-        favoriteLandmark: 'PIXEL MART',
-        homeDeedId: 777,
-        x: 24,
-        y: 14,
-        targetX: 24,
-        targetY: 14,
-        speech: 'Looking for rare apartment furniture.',
-        speechTimer: 0,
-        palette: 'redhead'
-      },
-      {
-        tokenId: 888,
-        code: '#0888',
-        name: 'Zombie Wizard',
-        trait: '3D Alchemist',
-        favoriteLandmark: 'CENTRAL PLAZA',
-        homeDeedId: 888,
-        x: 20,
-        y: 19,
-        targetX: 20,
-        targetY: 19,
-        speech: '3D specs see alpha across the chain.',
-        speechTimer: 120,
-        palette: 'zombiewiz'
-      },
-      {
-        tokenId: 999,
-        code: '#0999',
-        name: 'Hazmat Rogue',
-        trait: 'Cyber Stalker',
-        favoriteLandmark: 'CITY HOSPITAL',
-        homeDeedId: 999,
-        x: 15,
-        y: 17,
-        targetX: 15,
-        targetY: 17,
-        speech: 'Scanning sector deeds...',
-        speechTimer: 0,
-        palette: 'hazmat'
-      },
-      {
-        tokenId: 1111,
-        code: '#1111',
-        name: 'Royal 3D',
-        trait: 'Crown Sovereign',
-        favoriteLandmark: 'APE CASINO',
-        homeDeedId: 1111,
-        x: 23,
-        y: 18,
-        targetX: 23,
-        targetY: 18,
-        speech: 'Penthouse deed #1111 is thriving!',
-        speechTimer: 200,
-        palette: 'royal'
-      }
-    ];
+  <canvas id="gameCanvas"></canvas>
 
-    /********************************************************************
-     * 2. PROCEDURAL PIXEL-ART SPRITE ATLAS GENERATOR (SINGLE TEXTURE!)
-     * Draws exact 16x16 pixel representations of the user's NFTs onto a
-     * single offscreen canvas so mobile browsers never run out of RAM.
-     ********************************************************************/
-    const atlasCanvas = document.createElement('canvas');
-    atlasCanvas.width = 192;
-    atlasCanvas.height = 32;
-    const atlasCtx = atlasCanvas.getContext('2d');
+<script>
+/**
+ * ============================================================================
+ * MODULE 1: ISOMETRIC MATH (isoMath.js)
+ * Converts flat (gridX, gridY) coordinates into 45-degree SimCity diamonds
+ * ============================================================================
+ */
+const TILE_W = 64;
+const TILE_H = 32;
+const MAP_SIZE = 24;
 
-    function drawPixelPattern(ctx, offsetX, offsetY, grid, colorMap) {
-      for (let r = 0; r < grid.length; r++) {
-        const row = grid[r];
-        for (let c = 0; c < row.length; c++) {
-          const ch = row[c];
-          if (ch !== '.' && colorMap[ch]) {
-            ctx.fillStyle = colorMap[ch];
-            ctx.fillRect(offsetX + c, offsetY + r, 1, 1);
-          }
-        }
-      }
+function gridToScreen(gx, gy) {
+  return {
+    x: (gx - gy) * (TILE_W / 2),
+    y: (gx + gy) * (TILE_H / 2)
+  };
+}
+
+function screenToGrid(sx, sy) {
+  const gx = (sx / (TILE_W / 2) + sy / (TILE_H / 2)) / 2;
+  const gy = (sy / (TILE_H / 2) - sx / (TILE_W / 2)) / 2;
+  return { gx: Math.floor(gx), gy: Math.floor(gy) };
+}
+
+/**
+ * ============================================================================
+ * MODULE 2: PRE-RENDERED ISOMETRIC SPRITE FACTORY (assetPack.js)
+ * SimCity 4 doesn't draw 3D polygons every frame—it stamps pre-rendered
+ * isometric sprites. Here we bake buildings once into offscreen canvases.
+ * ============================================================================
+ */
+const IsoSprites = {};
+
+function createOffscreen(w, h, drawFn) {
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  drawFn(c.getContext('2d'), w, h);
+  return c;
+}
+
+// Helper to draw an extruded 3D isometric box (roof, left wall, right wall)
+function drawIsoBox(ctx, cx, baseY, w, d, h, topCol, leftCol, rightCol) {
+  const hw = w / 2, hd = d / 2;
+  // Left wall
+  ctx.fillStyle = leftCol;
+  ctx.beginPath();
+  ctx.moveTo(cx - hw, baseY - hd);
+  ctx.lineTo(cx, baseY);
+  ctx.lineTo(cx, baseY - h);
+  ctx.lineTo(cx - hw, baseY - hd - h);
+  ctx.closePath(); ctx.fill();
+
+  // Right wall
+  ctx.fillStyle = rightCol;
+  ctx.beginPath();
+  ctx.moveTo(cx + hw, baseY - hd);
+  ctx.lineTo(cx, baseY);
+  ctx.lineTo(cx, baseY - h);
+  ctx.lineTo(cx + hw, baseY - hd - h);
+  ctx.closePath(); ctx.fill();
+
+  // Roof diamond
+  ctx.fillStyle = topCol;
+  ctx.beginPath();
+  ctx.moveTo(cx, baseY - d - h);
+  ctx.lineTo(cx + hw, baseY - hd - h);
+  ctx.lineTo(cx, baseY - h);
+  ctx.lineTo(cx - hw, baseY - hd - h);
+  ctx.closePath(); ctx.fill();
+}
+
+// Helper to draw an isometric ground tile
+function drawIsoDiamond(ctx, cx, cy, col, stroke) {
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - TILE_H / 2);
+  ctx.lineTo(cx + TILE_W / 2, cy);
+  ctx.lineTo(cx, cy + TILE_H / 2);
+  ctx.lineTo(cx - TILE_W / 2, cy);
+  ctx.closePath();
+  ctx.fill();
+  if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+}
+
+function bakeAllAssets() {
+  // 0: Grass Lawn
+  IsoSprites.grass = createOffscreen(64, 32, (ctx) => {
+    drawIsoDiamond(ctx, 32, 16, '#4d7c38', '#436e30');
+  });
+
+  // 1: Paved Avenue Road with yellow dashed center
+  IsoSprites.road = createOffscreen(64, 32, (ctx) => {
+    drawIsoDiamond(ctx, 32, 16, '#343a40', '#495057');
+    ctx.strokeStyle = '#d4ac0d'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(20, 10); ctx.lineTo(44, 22); ctx.stroke();
+  });
+
+  // 2: Circular Traffic Roundabout (from your SimCity 4 screenshot)
+  IsoSprites.roundabout = createOffscreen(64, 32, (ctx) => {
+    drawIsoDiamond(ctx, 32, 16, '#2c3136', '#495057');
+    ctx.fillStyle = '#adb5bd';
+    ctx.beginPath(); ctx.ellipse(32, 16, 16, 8, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2ecc71';
+    ctx.beginPath(); ctx.ellipse(32, 16, 10, 5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#e8f8f5';
+    ctx.beginPath(); ctx.arc(32, 15, 2.5, 0, Math.PI * 2); ctx.fill();
+  });
+
+  // 3: Railway Track
+  IsoSprites.rail = createOffscreen(64, 32, (ctx) => {
+    drawIsoDiamond(ctx, 32, 16, '#465935', '#3d4e2e');
+    ctx.strokeStyle = '#5c4033'; ctx.lineWidth = 2;
+    for (let i = -8; i <= 8; i += 4) {
+      ctx.beginPath(); ctx.moveTo(28 + i, 12 + i * 0.5); ctx.lineTo(36 + i, 20 + i * 0.5); ctx.stroke();
     }
+    ctx.strokeStyle = '#95a5a6'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(16, 8); ctx.lineTo(48, 24); ctx.stroke();
+  });
 
-    function buildCharacterSpriteAtlas() {
-      // 0: Captain Otter (#0001) - White Captain Hat + Gold Anchor + Brown Otter + Blue Eyes
-      const otterGrid = [
-        "....WWWWWWWW....",
-        "...WWWWAAWWWW...",
-        "..WWWWAAAAWWWW..",
-        "..KKKKKKKKKKKK..",
-        "..KKYYYYYYYYKK..",
-        "...BBBBBBBBBB...",
-        "..BBBBBCCCCCCB..",
-        "..BBBBCCBBCCCB..",
-        "...BBBMMMMMMMK..",
-        "...BBMMKMMKMM...",
-        "....BMMMMMMMM...",
-        "....BBBBMMBBBB..",
-        "...BBBBMMMMBBBB.",
-        "..BBBBMMMMMMBBBB",
-        "..BBBBMMMMMMBBBB",
-        "...BBBB....BBBB."
-      ];
-      drawPixelPattern(atlasCtx, 0, 0, otterGrid, {
-        W: '#f8fafc', A: '#eab308', K: '#0f172a', Y: '#facc15',
-        B: '#5c3a21', C: '#0284c7', M: '#e2cbb0'
-      });
+  // 4: Suburban Estate + Backyard Blue Swimming Pool (Deed Plot)
+  IsoSprites.house = createOffscreen(64, 80, (ctx) => {
+    drawIsoDiamond(ctx, 32, 64, '#588c3f', '#4b7835');
+    // Backyard blue swimming pool
+    ctx.fillStyle = '#3498db';
+    ctx.beginPath(); ctx.ellipse(45, 63, 7, 3.5, 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ecf0f1'; ctx.lineWidth = 1; ctx.stroke();
+    // House body
+    drawIsoBox(ctx, 26, 66, 28, 14, 16, '#a94438', '#dfd3c3', '#c7b198');
+    // Sloped gable roof
+    ctx.fillStyle = '#87362b';
+    ctx.beginPath();
+    ctx.moveTo(26, 31); ctx.lineTo(40, 43); ctx.lineTo(26, 50); ctx.lineTo(12, 43);
+    ctx.closePath(); ctx.fill();
+    // Lush Tree
+    ctx.fillStyle = '#2d5a27';
+    ctx.beginPath(); ctx.arc(14, 52, 6, 0, Math.PI * 2); ctx.fill();
+  });
 
-      // 1: USA Hoodie (#0420) - Backwards USA Cap + Dark Shades + Red/White/Blue Hoodie
-      const usaGrid = [
-        "....BBBBBRRRR...",
-        "...BWBWBWRRRRR..",
-        "..BBBBBBWWWWWW..",
-        ".RRRRBBBBBBBB...",
-        "...SSSSSSSSSS...",
-        "...KKKKKKKKKK...",
-        "...KGGGGKGGGG...",
-        "...SSSSSSSSSS...",
-        "...SSSSSSPPPP...",
-        "....SSSSSSSS....",
-        "...RRRRSSSSRRRR.",
-        "..RRRRRRRRRRRRRR",
-        "..BBBBWWWWWWBBBB",
-        "..BBBBRRRRRRBBBB",
-        "..BBBBWWWWWWBBBB",
-        "...BBBB....BBBB."
-      ];
-      drawPixelPattern(atlasCtx, 16, 0, usaGrid, {
-        B: '#1d4ed8', W: '#ffffff', R: '#dc2626', S: '#eac096',
-        K: '#090d16', G: '#94a3b8', P: '#e11d48'
-      });
-
-      // 2: Cool Redhead (#0777) - Orange Bob + Black Shades + Cigarette
-      const redheadGrid = [
-        "....OOOOOOOO....",
-        "...OOOOOOOOOO...",
-        "..OOOOOOOOOOOO..",
-        "..OOSSSSSSSSOO..",
-        "..OOKKKKKKKKKO..",
-        "..OOSKKKKKKKSO..",
-        "..OOSSSSSSSSOO..",
-        "..OOSSSSPPPPWWG.",
-        "...OSSSSSSSSO...",
-        "....SSSSSSSS....",
-        "...SSSSSSSSSS...",
-        "..SSSSSSSSSSSS..",
-        "..SSSSSSSSSSSS..",
-        "...SSSSSSSSSS...",
-        "....SSS..SSS....",
-        "....SSS..SSS...."
-      ];
-      drawPixelPattern(atlasCtx, 32, 0, redheadGrid, {
-        O: '#ea580c', S: '#eac096', K: '#090d16', P: '#e11d48',
-        W: '#ffffff', G: '#ef4444'
-      });
-
-      // 3: Zombie Wizard (#0888) - Purple Wizard Hat + Green Skin + 3D Glasses
-      const zombieGrid = [
-        "......PPPP......",
-        ".....PPPPPP.....",
-        "....PPPPPPPP....",
-        "...PPPPYYYYPP...",
-        ".PPPPPPPPPPPPPP.",
-        "...ZZZZZZZZZZ...",
-        "...WWWWWWWWWW...",
-        "...WBBWWWRRRW...",
-        "...ZZZZZZZZZZ...",
-        "...ZZZZKKKKWWG..",
-        "....ZZZZZZZZ....",
-        "...PPPPZZZZPPPP.",
-        "..PPPPPPPPPPPPPP",
-        "..PPPPPPPPPPPPPP",
-        "...PPPP....PPPP.",
-        "...ZZZZ....ZZZZ."
-      ];
-      drawPixelPattern(atlasCtx, 48, 0, zombieGrid, {
-        P: '#6b21a8', Y: '#eab308', Z: '#4d7c0f', W: '#ffffff',
-        B: '#2563eb', R: '#dc2626', K: '#1e293b', G: '#f97316'
-      });
-
-      // 4: Hazmat Rogue (#0999) - Yellow Checkered Hood + Glowing Red Eyes + Crimson Cloak
-      const hazmatGrid = [
-        "....YYYYYYYY....",
-        "...YKYKYKYKYK...",
-        "..YYYYYYYYYYYY..",
-        "..YKGGGGGGGGKY..",
-        "..YYGGRGGRGGYY..",
-        "..YYGGGGGGGGYY..",
-        "...YKYKYKYKYK...",
-        "....YYYYYYYY....",
-        "...CCCCCCCCCC...",
-        "..CCCCCCCCCCCC..",
-        "..CCCCCCCCCCCC..",
-        ".CCCCCCCCCCCCCC.",
-        ".CCCCCCCCCCCCCC.",
-        "..CCCCCCCCCCCC..",
-        "...CCCC....CCCC.",
-        "...KKKK....KKKK."
-      ];
-      drawPixelPattern(atlasCtx, 64, 0, hazmatGrid, {
-        Y: '#facc15', K: '#ca8a04', G: '#14532d', R: '#ef4444',
-        C: '#991b1b'
-      });
-
-      // 5: Royal 3D (#1111) - Ponytail + 3D Glasses + Cigarette + Royal Ermine Cape
-      const royalGrid = [
-        "....BBBBBBBB....",
-        "..YBBBBBBBBBB...",
-        ".BBBBBSSSSBBBB..",
-        ".BBBBWWWWWWWW...",
-        ".BBBBWBBWWRRW...",
-        "..BBBSSSSSSSS...",
-        "..BBBSSSSPPPWWG.",
-        "...BBSSSSSSSS...",
-        "...WWWWWWWWWW...",
-        "..WWKWWYYWWKWW..",
-        "..RRRRRYYRRRRR..",
-        ".RRRRRRRRRRRRRR.",
-        ".RRRRRRRRRRRRRR.",
-        "..RRRRRRRRRRRR..",
-        "...RRRR....RRRR.",
-        "...KKKK....KKKK."
-      ];
-      drawPixelPattern(atlasCtx, 80, 0, royalGrid, {
-        B: '#451a03', Y: '#facc15', S: '#eac096', W: '#ffffff',
-        R: '#b91c1c', P: '#e11d48', G: '#ef4444', K: '#0f172a'
-      });
+  // 5: Mid-Rise U-Shaped Red Brick Courtyard Building (Center of Screenshot)
+  IsoSprites.courtyard = createOffscreen(64, 100, (ctx) => {
+    drawIsoDiamond(ctx, 32, 84, '#6c757d');
+    drawIsoBox(ctx, 32, 88, 50, 25, 38, '#4a4e54', '#9e473b', '#7a342a');
+    // Inner dark courtyard recess
+    ctx.fillStyle = '#2b2d2f';
+    ctx.beginPath(); ctx.ellipse(32, 38, 9, 4.5, 0, 0, Math.PI * 2); ctx.fill();
+    // Isometric window strips
+    ctx.fillStyle = '#d6eaf8';
+    for (let y = 56; y < 80; y += 6) {
+      ctx.fillRect(14, y, 12, 2);
+      ctx.fillRect(38, y, 12, 2);
     }
+  });
 
-    buildCharacterSpriteAtlas();
+  // 6: Glass High-Rise Skyscraper + Rooftop Pool (SimCity 4 Luxury Condo)
+  IsoSprites.skyscraper = createOffscreen(64, 150, (ctx) => {
+    drawIsoDiamond(ctx, 32, 134, '#5c6773');
+    drawIsoBox(ctx, 32, 138, 46, 23, 88, '#dce4ec', '#b0c4de', '#778899');
+    // Glass balcony grid
+    ctx.fillStyle = '#2c3e50';
+    for (let y = 56; y < 130; y += 7) {
+      ctx.fillRect(14, y, 14, 3);
+      ctx.fillRect(36, y, 14, 3);
+    }
+    // Rooftop turquoise swimming pool
+    ctx.fillStyle = '#00d2d3';
+    ctx.beginPath(); ctx.ellipse(32, 38, 10, 5, 0, 0, Math.PI * 2); ctx.fill();
+  });
 
-    /********************************************************************
-     * 3. WORLD GRID GENERATION (50x44 TILES - DOWNTOWN + DEED PLOTS)
-     ********************************************************************/
-    const MAP_COLS = 50;
-    const MAP_ROWS = 44;
-    const BASE_TILE_SIZE = 24;
+  // 7: Neoclassical City Hall / Casino Landmark with Columns & Dome
+  IsoSprites.cityhall = createOffscreen(64, 120, (ctx) => {
+    drawIsoDiamond(ctx, 32, 104, '#ced4da');
+    drawIsoBox(ctx, 32, 106, 54, 27, 36, '#7f8c8d', '#ecf0f1', '#bdc3c7');
+    // Classical front columns
+    ctx.fillStyle = '#2c3e50';
+    for (let x = 14; x <= 28; x += 4) ctx.fillRect(x, 76, 2, 18);
+    for (let x = 36; x <= 50; x += 4) ctx.fillRect(x, 76, 2, 18);
+    // Classical rotunda dome
+    ctx.fillStyle = '#576574';
+    ctx.beginPath(); ctx.arc(32, 56, 11, Math.PI, 0); ctx.fill();
+    // Plaza blue fountain
+    ctx.fillStyle = '#3498db';
+    ctx.beginPath(); ctx.ellipse(18, 106, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+  });
 
-    // Tile Types:
-    // 0: Grass, 1: Road, 2: Sidewalk/Plaza, 3: Water, 4: Wooden Pier, 5: Residential Deed Plot
-    const worldGrid = [];
-    const plotDeeds = [];
-    const landmarks = [
-      {
-        id: 'APE CASINO',
-        title: '🎰 APE CASINO',
-        col: 18,
-        row: 10,
-        w: 5,
-        h: 4,
-        doorX: 20,
-        doorY: 14,
-        roofColor: '#9333ea',
-        wallColor: '#3b0764',
-        accent: '#facc15',
-        desc: 'High-roller pixel slots & community jackpot tables on ApeChain.'
-      },
-      {
-        id: 'CITY HOSPITAL',
-        title: '🏥 CITY HOSPITAL',
-        col: 11,
-        row: 10,
-        w: 4,
-        h: 4,
-        doorX: 13,
-        doorY: 14,
-        roofColor: '#f8fafc',
-        wallColor: '#cbd5e1',
-        accent: '#ef4444',
-        desc: 'Restores citizen stamina and heals rugged traders 24/7.'
-      },
-      {
-        id: 'PIXEL MART',
-        title: '🛒 PIXEL MART',
-        col: 26,
-        row: 10,
-        w: 4,
-        h: 4,
-        doorX: 28,
-        doorY: 14,
-        roofColor: '#0284c7',
-        wallColor: '#0c4a6e',
-        accent: '#38bdf8',
-        desc: 'Purchase custom pixel furniture and upgrades for your Deed Plot.'
-      },
-      {
-        id: 'CENTRAL PLAZA',
-        title: '⛲ CENTRAL PLAZA',
-        col: 19,
-        row: 16,
-        w: 4,
-        h: 4,
-        doorX: 21,
-        doorY: 20,
-        roofColor: '#0ea5e9',
-        wallColor: '#334155',
-        accent: '#7dd3fc',
-        desc: 'The heart of ApeCity where AI and active citizens chat.'
-      },
-      {
-        id: 'HARBOR DOCKS',
-        title: '⚓ HARBOR DOCKS',
-        col: 19,
-        row: 34,
-        w: 6,
-        h: 4,
-        doorX: 21,
-        doorY: 33,
-        roofColor: '#78350f',
-        wallColor: '#451a03',
-        accent: '#facc15',
-        desc: 'Captain Otter’s waterfront yacht club & fishing pier.'
+  // 8: Lush City Park with Palm/Oak Trees
+  IsoSprites.park = createOffscreen(64, 64, (ctx) => {
+    drawIsoDiamond(ctx, 32, 48, '#447031');
+    const trees = [[22, 40], [38, 44], [30, 50]];
+    trees.forEach(([tx, ty]) => {
+      ctx.fillStyle = '#5c4033'; ctx.fillRect(tx - 1, ty - 6, 3, 7);
+      ctx.fillStyle = '#27ae60';
+      ctx.beginPath(); ctx.arc(tx, ty - 10, 7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1e8449';
+      ctx.beginPath(); ctx.arc(tx + 2, ty - 9, 5, 0, Math.PI * 2); ctx.fill();
+    });
+  });
+}
+
+// Bake the 6 ApeChain Pixel-Art Characters
+const CharSprites = [];
+const CHAR_DATA = [
+  { name: '#0001 Captain Otter', body: '#6e472b', hat: '#ffffff', visor: '#f1c40f', glass: '#3498db' },
+  { name: '#0420 USA Hoodie',    body: '#c0392b', hat: '#2980b9', visor: '#e74c3c', glass: '#2c3e50' },
+  { name: '#0777 Cool Redhead',  body: '#e5aa7a', hat: '#d35400', visor: '#d35400', glass: '#111111' },
+  { name: '#0888 Zombie Wizard', body: '#4a6b3b', hat: '#6c3483', visor: '#f1c40f', glass: '#e74c3c' },
+  { name: '#0999 Hazmat Rogue',  body: '#8e1b1b', hat: '#f1c40f', visor: '#2c3e50', glass: '#e74c3c' },
+  { name: '#1111 Royal 3D',      body: '#922b21', hat: '#5d4037', visor: '#f1c40f', glass: '#3498db' }
+];
+
+function bakeCharacters() {
+  CHAR_DATA.forEach((c) => {
+    const canvas = createOffscreen(24, 32, (ctx) => {
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.beginPath(); ctx.ellipse(12, 28, 7, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      // Torso
+      ctx.fillStyle = c.body; ctx.fillRect(7, 15, 10, 11);
+      // Head
+      ctx.fillStyle = (c.name.includes('Zombie') || c.name.includes('Hazmat')) ? '#4a6b3b' : '#eab68c';
+      ctx.fillRect(6, 6, 12, 10);
+      // Shades / Eyes
+      ctx.fillStyle = c.glass; ctx.fillRect(8, 9, 8, 3);
+      // Hat / Crown / Hair
+      ctx.fillStyle = c.hat; ctx.fillRect(5, 2, 14, 5);
+      ctx.fillStyle = c.visor; ctx.fillRect(6, 5, 12, 2);
+    });
+    CharSprites.push(canvas);
+  });
+}
+
+/**
+ * ============================================================================
+ * MODULE 3: WORLD MAP & DEEDS (worldMap.js)
+ * Represents your JSON map exported from Tiled Map Editor
+ * ============================================================================
+ */
+const worldGrid = [];
+const deeds = {};
+
+function initWorldMap() {
+  let deedCounter = 1;
+  for (let gx = 0; gx < MAP_SIZE; gx++) {
+    worldGrid[gx] = [];
+    for (let gy = 0; gy < MAP_SIZE; gy++) {
+      let type = 'grass';
+      // Avenue Grid + Roundabouts (matching SimCity 4 layout)
+      const isRoadX = (gx === 5 || gx === 11 || gx === 17);
+      const isRoadY = (gy === 5 || gy === 11 || gy === 17);
+      if (isRoadX && isRoadY) type = 'roundabout';
+      else if (isRoadX || isRoadY) type = 'road';
+      else if (gy === 20) type = 'rail';
+      // Downtown Landmarks in Center Block
+      else if (gx === 8 && gy === 8) type = 'cityhall';
+      else if (gx === 9 && gy === 8) type = 'courtyard';
+      // High-Density Skyscraper District (Left & Bottom-Right like screenshot)
+      else if ((gx < 5 && gy < 10 && (gx + gy) % 2 === 0) || (gx > 12 && gy > 12 && (gx * gy) % 3 === 0)) {
+        type = 'skyscraper';
       }
-    ];
-
-    function initWorldMap() {
-      for (let r = 0; r < MAP_ROWS; r++) {
-        worldGrid[r] = [];
-        for (let c = 0; c < MAP_COLS; c++) {
-          // Southern Harbor Water
-          if (r >= 35) {
-            worldGrid[r][c] = 3;
-          } else {
-            worldGrid[r][c] = 0; // Grass
-          }
-        }
-      }
-
-      // Build Road Network (Grid avenues)
-      const roadRows = [8, 15, 22, 29];
-      const roadCols = [9, 17, 25, 33, 41];
-
-      for (let r = 4; r < 34; r++) {
-        for (let c = 4; c < 45; c++) {
-          if (roadRows.includes(r) || roadCols.includes(c)) {
-            worldGrid[r][c] = 1; // Road
-          }
-        }
-      }
-
-      // Downtown Plaza & Sidewalks
-      for (let r = 9; r <= 21; r++) {
-        for (let c = 10; c <= 31; c++) {
-          if (worldGrid[r][c] === 0) {
-            worldGrid[r][c] = 2; // Paved Downtown Core
-          }
-        }
+      // Suburban Pool Houses (Claimable NFT Deeds)
+      else if ((gx + gy) % 2 === 0 && gx < 19 && gy < 19) {
+        type = 'house';
+      } else {
+        type = 'park';
       }
 
-      // Harbor Wooden Pier extending into water
-      for (let r = 30; r <= 39; r++) {
-        for (let c = 20; c <= 23; c++) {
-          worldGrid[r][c] = 4; // Pier
-        }
-      }
-
-      // Populate Residential Deed Segments (#0001 - #1111 sample districts)
-      const presetDeedNumbers = [
-        1, 420, 777, 888, 999, 1111,
-        12, 24, 55, 88, 104, 150, 202, 305, 404, 512,
-        601, 680, 710, 808, 901, 950, 1005, 1088
-      ];
-      let deedIndex = 0;
-
-      const plotBlocks = [
-        // Top North Suburbs (Standalone Houses)
-        { r: 5, c: 11, type: 'Suburban House' },
-        { r: 5, c: 14, type: 'Suburban House' },
-        { r: 5, c: 19, type: 'Suburban House' },
-        { r: 5, c: 22, type: 'Suburban House' },
-        { r: 5, c: 27, type: 'Suburban House' },
-        { r: 5, c: 30, type: 'Suburban House' },
-        // West District
-        { r: 11, c: 6, type: 'Suburban House' },
-        { r: 18, c: 6, type: 'Suburban House' },
-        { r: 25, c: 6, type: 'Suburban House' },
-        // Inner Ring High-Density Apartments
-        { r: 24, c: 11, type: 'High-Rise Apartment' },
-        { r: 24, c: 14, type: 'High-Rise Apartment' },
-        { r: 24, c: 19, type: 'High-Rise Apartment' },
-        { r: 24, c: 22, type: 'High-Rise Apartment' },
-        { r: 24, c: 27, type: 'High-Rise Apartment' },
-        { r: 24, c: 30, type: 'High-Rise Apartment' },
-        // East Bay Estates
-        { r: 11, c: 35, type: 'Bayfront Villa' },
-        { r: 11, c: 38, type: 'Bayfront Villa' },
-        { r: 18, c: 35, type: 'Bayfront Villa' },
-        { r: 18, c: 38, type: 'Bayfront Villa' },
-        { r: 25, c: 35, type: 'Bayfront Villa' },
-        { r: 25, c: 38, type: 'Bayfront Villa' },
-        // Waterfront Row
-        { r: 31, c: 11, type: 'Harbor Condo' },
-        { r: 31, c: 14, type: 'Harbor Condo' },
-        { r: 31, c: 27, type: 'Harbor Condo' }
-      ];
-
-      plotBlocks.forEach((b, idx) => {
-        const deedNum = presetDeedNumbers[idx % presetDeedNumbers.length];
-        const matchedCitizen = NFT_CITIZENS.find(cit => cit.homeDeedId === deedNum);
-        const deedObj = {
-          deedId: deedNum,
-          code: `#${String(deedNum).padStart(4, '0')}`,
-          col: b.c,
-          row: b.r,
-          w: 2,
-          h: 2,
-          zoneType: b.type,
-          ownerCitizen: matchedCitizen ? `${matchedCitizen.code} (${matchedCitizen.name})` : null,
-          ownerTokenId: matchedCitizen ? matchedCitizen.tokenId : null,
-          level: matchedCitizen ? 2 : 1,
-          roofColor: b.type.includes('Apartment') ? '#3b82f6' : (matchedCitizen ? '#10b981' : '#f59e0b')
+      worldGrid[gx][gy] = type;
+      if (type === 'house' || type === 'skyscraper' || type === 'courtyard') {
+        deeds[`${gx},${gy}`] = {
+          id: deedCounter++,
+          type: type === 'skyscraper' ? 'Luxury High-Rise Condo' : (type === 'courtyard' ? 'Mid-Rise Courtyard Plaza' : 'Suburban Pool Estate'),
+          owner: Math.random() < 0.25 ? CHAR_DATA[Math.floor(Math.random() * CHAR_DATA.length)].name : null
         };
-        plotDeeds.push(deedObj);
-
-        for (let rr = b.r; rr < b.r + 2; rr++) {
-          for (let cc = b.c; cc < b.c + 2; cc++) {
-            worldGrid[rr][cc] = 5;
-          }
-        }
-      });
-    }
-
-    initWorldMap();
-
-    /********************************************************************
-     * 4. GAME STATE, CAMERA CULLING & PLAYER / AI CONTROLS
-     ********************************************************************/
-    const canvas = document.getElementById('worldCanvas');
-    const ctx = canvas.getContext('2d');
-
-    let activeCharacterIndex = 0;
-    let isPlayerAutopilot = false;
-    let isStreamDirectorMode = false;
-    let streamDirectorTimer = 0;
-    let streamFocusedCitizenIndex = 0;
-    let apeBalance = 250;
-
-    let zoomScale = 2; // 1.5x, 2x, 3x crisp pixel scale
-    const camera = {
-      x: 0,
-      y: 0,
-      width: 800,
-      height: 600
-    };
-
-    const keysPressed = { up: false, down: false, left: false, right: false };
-    let tapTarget = null; // { x, y } in tile coords
-    let tickCount = 0;
-
-    function resizeCanvas() {
-      const rect = canvas.parentElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-      camera.width = canvas.width;
-      camera.height = canvas.height;
-      ctx.imageSmoothingEnabled = false;
-    }
-    window.addEventListener('resize', resizeCanvas);
-    resizeCanvas();
-
-    // Render Active NFT Avatar in the Top HUD Bar & Character Switcher Bar
-    function updateHudAvatarAndSelector() {
-      const activeCit = NFT_CITIZENS[activeCharacterIndex];
-      document.getElementById('activeCitizenLabel').textContent =
-        `Citizen ${activeCit.code} • ${activeCit.name} (${activeCit.trait})`;
-
-      const hudCanvas = document.getElementById('hudAvatarCanvas');
-      const hCtx = hudCanvas.getContext('2d');
-      hCtx.imageSmoothingEnabled = false;
-      hCtx.clearRect(0, 0, 24, 24);
-      hCtx.drawImage(atlasCanvas, activeCharacterIndex * 16, 0, 16, 16, 2, 2, 20, 20);
-
-      // Build selector buttons
-      const bar = document.getElementById('characterSelectorBar');
-      bar.innerHTML = '';
-      NFT_CITIZENS.forEach((cit, idx) => {
-        const btn = document.createElement('button');
-        btn.className = `relative w-8 h-8 rounded-lg border transition-all flex items-center justify-center ${
-          idx === activeCharacterIndex
-            ? 'bg-amber-500/30 border-amber-400 scale-105 shadow'
-            : 'bg-slate-800/80 border-slate-700 opacity-75 hover:opacity-100'
-        }`;
-        btn.title = `${cit.code} ${cit.name}`;
-
-        const mini = document.createElement('canvas');
-        mini.width = 16;
-        mini.height = 16;
-        mini.className = 'w-6 h-6';
-        const mCtx = mini.getContext('2d');
-        mCtx.imageSmoothingEnabled = false;
-        mCtx.drawImage(atlasCanvas, idx * 16, 0, 16, 16, 0, 0, 16, 16);
-
-        btn.appendChild(mini);
-        btn.addEventListener('click', () => {
-          activeCharacterIndex = idx;
-          tapTarget = null;
-          updateHudAvatarAndSelector();
-          pushTickerNews(`Switched control to Citizen ${cit.code} (${cit.name})`);
-        });
-        bar.appendChild(btn);
-      });
-    }
-
-    updateHudAvatarAndSelector();
-
-    function pushTickerNews(msg) {
-      const ticker = document.getElementById('newsTickerText');
-      ticker.textContent = `⚡ ${msg} • ` + ticker.textContent.slice(0, 320);
-    }
-
-    /********************************************************************
-     * 5. AI AUTOPILOT & CITIZEN ROUTINE SIMULATION
-     ********************************************************************/
-    const AI_CHAT_LINES = [
-      'ApeChain gas is basically zero today!',
-      'Just upgraded my Deed plot!',
-      'Anyone hitting the Ape Casino slots?',
-      'Captain Otter owns the Harbor!',
-      '3D glasses crew checking in 🕶️',
-      'Watching the 24/7 city stream on YouTube!',
-      'Floor is lava, holding my 1111 Citizen!'
-    ];
-
-    function updateCitizens(dt) {
-      const moveSpeed = 0.055;
-
-      NFT_CITIZENS.forEach((cit, idx) => {
-        const isControlledByPlayer = (idx === activeCharacterIndex && !isPlayerAutopilot && !isStreamDirectorMode);
-
-        if (isControlledByPlayer) {
-          // Direct D-Pad / Keyboard movement
-          let dx = 0;
-          let dy = 0;
-          if (keysPressed.up) dy -= 1;
-          if (keysPressed.down) dy += 1;
-          if (keysPressed.left) dx -= 1;
-          if (keysPressed.right) dx += 1;
-
-          if (dx !== 0 || dy !== 0) {
-            tapTarget = null;
-            const len = Math.hypot(dx, dy);
-            const nextX = cit.x + (dx / len) * moveSpeed * 1.35;
-            const nextY = cit.y + (dy / len) * moveSpeed * 1.35;
-            if (isWalkable(nextX, nextY)) {
-              cit.x = nextX;
-              cit.y = nextY;
-            }
-          } else if (tapTarget) {
-            const tdx = tapTarget.x - cit.x;
-            const tdy = tapTarget.y - cit.y;
-            const dist = Math.hypot(tdx, tdy);
-            if (dist > 0.15) {
-              cit.x += (tdx / dist) * moveSpeed * 1.35;
-              cit.y += (tdy / dist) * moveSpeed * 1.35;
-            } else {
-              tapTarget = null;
-            }
-          }
-        } else {
-          // Autonomous AI State Machine (Offline / Autopilot Mode)
-          const tdx = cit.targetX - cit.x;
-          const tdy = cit.targetY - cit.y;
-          const dist = Math.hypot(tdx, tdy);
-
-          if (dist > 0.15) {
-            cit.x += (tdx / dist) * (moveSpeed * 0.75);
-            cit.y += (tdy / dist) * (moveSpeed * 0.75);
-          } else {
-            // Pick a new destination (either favorite landmark, home deed, or plaza)
-            if (Math.random() < 0.02) {
-              const roll = Math.random();
-              if (roll < 0.45) {
-                const lm = landmarks[Math.floor(Math.random() * landmarks.length)];
-                cit.targetX = lm.doorX + (Math.random() * 2 - 1);
-                cit.targetY = lm.doorY + (Math.random() * 1.5);
-                cit.speech = `Heading to ${lm.id}!`;
-                cit.speechTimer = 180;
-              } else if (roll < 0.75) {
-                const myDeed = plotDeeds.find(d => d.deedId === cit.homeDeedId);
-                if (myDeed) {
-                  cit.targetX = myDeed.col + 0.5;
-                  cit.targetY = myDeed.row + 2.2;
-                  cit.speech = `Going home to Deed ${myDeed.code}`;
-                  cit.speechTimer = 180;
-                }
-              } else {
-                cit.targetX = 12 + Math.floor(Math.random() * 22);
-                cit.targetY = 14 + Math.floor(Math.random() * 16);
-              }
-            }
-          }
-
-          // Random AI overhead chatter
-          if (cit.speechTimer > 0) {
-            cit.speechTimer--;
-          } else if (Math.random() < 0.003) {
-            cit.speech = AI_CHAT_LINES[Math.floor(Math.random() * AI_CHAT_LINES.length)];
-            cit.speechTimer = 210;
-          }
-        }
-      });
-
-      // Check if Player is near a Landmark Entrance
-      const player = NFT_CITIZENS[activeCharacterIndex];
-      let foundLandmark = null;
-      for (const lm of landmarks) {
-        const d = Math.hypot(player.x - lm.doorX, player.y - lm.doorY);
-        if (d < 2.6) {
-          foundLandmark = lm;
-          break;
-        }
       }
+    }
+  }
+}
 
-      const promptEl = document.getElementById('nearbyPrompt');
-      const promptText = document.getElementById('nearbyPromptText');
-      if (foundLandmark) {
-        promptEl.classList.remove('hidden');
-        promptText.textContent = `Tap to Interact: ${foundLandmark.title}`;
-        promptEl.onclick = () => openLandmarkModal(foundLandmark);
+/**
+ * ============================================================================
+ * MODULE 4: ACTORS, CAMERA & DEPTH-SORTED RENDERER (main.js)
+ * ============================================================================
+ */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+let camX = 0, camY = -220, camZoom = 1.15;
+let autoMode = true, streamMode = false;
+let selectedTile = null;
+
+// Spawn 18 live citizens walking the avenues
+const citizens = Array.from({ length: 18 }, (_, i) => ({
+  id: i,
+  charIdx: i % 6,
+  gx: 5,
+  gy: (i * 2) % 18 + 2,
+  targetGx: 11,
+  targetGy: 5,
+  speed: 0.025 + (i % 3) * 0.008,
+  chat: i % 4 === 0 ? ['GM ApeChain!', 'Heading to Casino 🎰', 'Nice pool!', 'Minting Deed!'][i % 4] : null
+}));
+
+function updateCitizens() {
+  const roads = [5, 11, 17];
+  citizens.forEach((c, idx) => {
+    if (idx === 0 && !autoMode) return; // Player manual control
+    const dx = c.targetGx - c.gx;
+    const dy = c.targetGy - c.gy;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 0.1) {
+      // Pick next avenue intersection
+      if (Math.random() < 0.5) {
+        c.targetGx = roads[Math.floor(Math.random() * roads.length)];
       } else {
-        promptEl.classList.add('hidden');
+        c.targetGy = roads[Math.floor(Math.random() * roads.length)];
+      }
+    } else {
+      c.gx += (dx / dist) * c.speed;
+      c.gy += (dy / dist) * c.speed;
+    }
+  });
+
+  // 24/7 Stream Director Camera smoothly follows active citizen
+  if (streamMode) {
+    const focus = citizens[Math.floor(Date.now() / 6000) % citizens.length];
+    const pos = gridToScreen(focus.gx, focus.gy);
+    camX += (-pos.x - camX) * 0.05;
+    camY += (-pos.y - camY) * 0.05;
+  }
+}
+
+let lastTime = performance.now(), frames = 0;
+
+function renderLoop(now) {
+  frames++;
+  if (now - lastTime >= 1000) {
+    document.getElementById('fpsCounter').textContent = `${frames} FPS`;
+    frames = 0; lastTime = now;
+  }
+
+  updateCitizens();
+
+  ctx.fillStyle = '#0d131a';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  ctx.save();
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.scale(camZoom, camZoom);
+  ctx.translate(camX, camY);
+
+  let drawnTiles = 0;
+  const halfW = (canvas.width / 2) / camZoom + 120;
+  const halfH = (canvas.height / 2) / camZoom + 180;
+
+  // PAINTER'S ALGORITHM: Draw back-to-front by diagonal depth (sum = gx + gy)
+  for (let sum = 0; sum <= (MAP_SIZE - 1) * 2; sum++) {
+    for (let gx = 0; gx < MAP_SIZE; gx++) {
+      const gy = sum - gx;
+      if (gy < 0 || gy >= MAP_SIZE) continue;
+
+      const screen = gridToScreen(gx, gy);
+      // Strict Mobile Viewport Culling
+      if (screen.x < -camX - halfW || screen.x > -camX + halfW ||
+          screen.y < -camY - halfH || screen.y > -camY + halfH) {
+        continue;
       }
 
-      // Update Camera Position (Smooth Lerp to Player or 24/7 Stream Target)
-      const tilePx = BASE_TILE_SIZE * zoomScale;
-      let focusCit = NFT_CITIZENS[activeCharacterIndex];
+      drawnTiles++;
+      const type = worldGrid[gx][gy];
+      const sprite = IsoSprites[type];
+      ctx.drawImage(sprite, screen.x - sprite.width / 2, screen.y - sprite.height + 16);
 
-      if (isStreamDirectorMode) {
-        streamDirectorTimer++;
-        if (streamDirectorTimer > 300) {
-          streamDirectorTimer = 0;
-          streamFocusedCitizenIndex = (streamFocusedCitizenIndex + 1) % NFT_CITIZENS.length;
-          const nextCit = NFT_CITIZENS[streamFocusedCitizenIndex];
-          document.getElementById('streamCameraTarget').textContent =
-            `🎥 Tracking: Citizen ${nextCit.code} (${nextCit.name}) — ${nextCit.trait}`;
-          pushTickerNews(`Stream Cam switched to Citizen ${nextCit.code} (${nextCit.name})`);
-        }
-        focusCit = NFT_CITIZENS[streamFocusedCitizenIndex];
+      // Highlight selected plot
+      if (selectedTile && selectedTile.gx === gx && selectedTile.gy === gy) {
+        drawIsoDiamond(ctx, screen.x, screen.y, 'rgba(245, 176, 65, 0.35)', '#f5b041');
       }
-
-      const desiredCamX = focusCit.x * tilePx - camera.width / 2;
-      const desiredCamY = focusCit.y * tilePx - camera.height / 2;
-      camera.x += (desiredCamX - camera.x) * 0.12;
-      camera.y += (desiredCamY - camera.y) * 0.12;
-
-      // Clamp camera to world boundaries
-      const maxCamX = Math.max(0, MAP_COLS * tilePx - camera.width);
-      const maxCamY = Math.max(0, MAP_ROWS * tilePx - camera.height);
-      camera.x = Math.max(0, Math.min(maxCamX, camera.x));
-      camera.y = Math.max(0, Math.min(maxCamY, camera.y));
     }
 
-    function isWalkable(tx, ty) {
-      const c = Math.floor(tx);
-      const r = Math.floor(ty);
-      if (r < 1 || r >= MAP_ROWS - 1 || c < 1 || c >= MAP_COLS - 1) return false;
-      const tile = worldGrid[r][c];
-      return tile !== 3; // Cannot walk on deep water (unless on pier tile 4)
+    // Draw citizens standing on this diagonal depth slice
+    citizens.forEach((c, idx) => {
+      if (Math.round(c.gx + c.gy) === sum) {
+        const pos = gridToScreen(c.gx, c.gy);
+        const charImg = CharSprites[c.charIdx];
+        ctx.drawImage(charImg, pos.x - 12, pos.y - 28);
+
+        if (idx === 0 || c.chat) {
+          ctx.fillStyle = 'rgba(0,0,0,0.75)';
+          ctx.font = 'bold 9px sans-serif';
+          const label = idx === 0 ? '⭐ YOU' : c.chat;
+          const tw = ctx.measureText(label).width + 8;
+          ctx.fillRect(pos.x - tw / 2, pos.y - 42, tw, 12);
+          ctx.fillStyle = idx === 0 ? '#f5b041' : '#fff';
+          ctx.fillText(label, pos.x - tw / 2 + 4, pos.y - 33);
+        }
+      }
+    });
+  }
+
+  ctx.restore();
+  document.getElementById('cullCounter').textContent = `${drawnTiles}/${MAP_SIZE * MAP_SIZE} Tiles Drawn`;
+  requestAnimationFrame(renderLoop);
+}
+
+// Touch & Mouse Controls (Pan, Pinch/Wheel Zoom, Tap Plot to Inspect Deed)
+let isDragging = false, startX = 0, startY = 0, moved = false;
+
+canvas.addEventListener('pointerdown', (e) => {
+  isDragging = true; moved = false;
+  startX = e.clientX; startY = e.clientY;
+});
+
+window.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - startX, dy = e.clientY - startY;
+  if (Math.hypot(dx, dy) > 4) moved = true;
+  camX += dx / camZoom;
+  camY += dy / camZoom;
+  startX = e.clientX; startY = e.clientY;
+});
+
+window.addEventListener('pointerup', (e) => {
+  if (isDragging && !moved) {
+    // Convert screen tap into Isometric Grid Coordinate
+    const wx = (e.clientX - canvas.width / 2) / camZoom - camX;
+    const wy = (e.clientY - canvas.height / 2) / camZoom - camY;
+    const { gx, gy } = screenToGrid(wx, wy);
+    if (gx >= 0 && gx < MAP_SIZE && gy >= 0 && gy < MAP_SIZE) {
+      selectedTile = { gx, gy };
+      citizens[0].targetGx = gx; citizens[0].targetGy = gy;
+      const key = `${gx},${gy}`;
+      if (deeds[key]) {
+        const d = deeds[key];
+        document.getElementById('inspector').style.display = 'block';
+        document.getElementById('inspTitle').textContent = `ApeChain Deed #${String(d.id).padStart(4, '0')} (${gx},${gy})`;
+        document.getElementById('inspType').textContent = `Property: ${d.type}`;
+        document.getElementById('inspOwner').textContent = `Owner: ${d.owner || 'Unclaimed (Ready to Mint)'}`;
+      }
     }
+  }
+  isDragging = false;
+});
 
-    /********************************************************************
-     * 6. STRICT VIEWPORT CAMERA CULLING RENDERER
-     * Only renders tiles inside [startCol..endCol, startRow..endRow]
-     ********************************************************************/
-    function renderWorld() {
-      ctx.fillStyle = '#090d16';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  camZoom = Math.min(2.2, Math.max(0.55, camZoom - e.deltaY * 0.001));
+}, { passive: false });
 
-      const tilePx = BASE_TILE_SIZE * zoomScale;
+// UI Buttons
+document.getElementById('charSelect').addEventListener('change', (e) => {
+  citizens[0].charIdx = parseInt(e.target.value, 10);
+});
 
-      // Compute strict camera culling bounds (+1 tile margin)
-      const startCol = Math.max(0, Math.floor(camera.x / tilePx) - 1);
-      const endCol = Math.min(MAP_COLS - 1, Math.ceil((camera.x + camera.width) / tilePx) + 1);
-      const startRow = Math.max(0, Math.floor(camera.y / tilePx) - 1);
-      const endRow = Math.min(MAP_ROWS - 1, Math.ceil((camera.y + camera.height) / tilePx) + 1);
+document.getElementById('btnAuto').addEventListener('click', (e) => {
+  autoMode = !autoMode;
+  e.target.classList.toggle('active', autoMode);
+  e.target.textContent = autoMode ? '🤖 AI Autopilot: ON' : '🕹️ Manual Tap-to-Move';
+});
 
-      let renderedTilesCount = 0;
+document.getElementById('btnStream').addEventListener('click', (e) => {
+  streamMode = !streamMode;
+  e.target.classList.toggle('active', streamMode);
+});
 
-      // 1. Draw Visible Ground Tiles Only
-      for (let r = startRow; r <= endRow; r++) {
-        for (let c = startCol; c <= endCol; c++) {
-          renderedTilesCount++;
-          const screenX = Math.floor(c * tilePx - camera.x);
-          const screenY = Math.floor(r * tilePx - camera.y);
-          const t = worldGrid[r][c];
+document.getElementById('btnClaim').addEventListener('click', () => {
+  if (!selectedTile) return;
+  const key = `${selectedTile.gx},${selectedTile.gy}`;
+  if (deeds[key]) {
+    const charName = CHAR_DATA[citizens[0].charIdx].name;
+    deeds[key].owner = charName;
+    document.getElementById('inspOwner').textContent = `Owner: ${charName}`;
+    document.getElementById('newsText').textContent = `🎉 BREAKING: ${charName} just minted Deed #${deeds[key].id} (${deeds[key].type}) on ApeChain!`;
+  }
+});
 
-          if (t === 0) {
-            // Grass with subtle checkerboard texture
-            ctx.fillStyle = (r + c) % 2 === 0 ? '#15803d' : '#166534';
-            ctx.fillRect(screenX, screenY, tilePx, tilePx);
-          } else if (t === 1) {
-            // Asphalt Road
-            ctx.fillStyle = '#1e293b';
-            ctx.fillRect(screenX, screenY, tilePx, tilePx);
-            // Yellow road dashes
-            if ((r + c) % 2 === 0) {
-              ctx.fillStyle = '#facc15';
-              ctx.fillRect(screenX + tilePx * 0.42, screenY + tilePx * 0.42, tilePx * 0.16, tilePx * 0.16);
-            }
-          } else if (t === 2) {
-            // Downtown Sidewalk / Plaza Pavement
-            ctx.fillStyle = (r + c) % 2 === 0 ? '#475569' : '#334155';
-            ctx.fillRect(screenX, screenY, tilePx, tilePx);
-          } else if (t === 3) {
-            // Harbor Water with animated waves
-            const wave = Math.sin(tickCount * 0.05 + c * 0.7 + r * 0.5) > 0;
-            ctx.fillStyle = wave ? '#0369a1' : '#0284c7';
-            ctx.fillRect(screenX, screenY, tilePx, tilePx);
-          } else if (t === 4) {
-            // Wooden Pier planks
-            ctx.fillStyle = '#78350f';
-            ctx.fillRect(screenX, screenY, tilePx, tilePx);
-            ctx.fillStyle = '#451a03';
-            ctx.fillRect(screenX, screenY + tilePx * 0.45, tilePx, Math.max(1, zoomScale));
-          } else if (t === 5) {
-            // Plot Foundation
-            ctx.fillStyle = '#064e3b';
-            ctx.fillRect(screenX, screenY, tilePx, tilePx);
-          }
-        }
-      }
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
 
-      // Update HUD Telemetry Pill every 15 frames
-      if (tickCount % 15 === 0) {
-        const totalTiles = MAP_COLS * MAP_ROWS;
-        const hudEl = document.getElementById('hudTileMetric');
-        if (hudEl) {
-          hudEl.textContent = `${renderedTilesCount} / ${totalTiles}`;
-        }
-      }
-
-      // 2. Draw Residential Deed Plots (Culled to Viewport)
-      plotDeeds.forEach(deed => {
-        if (
-          deed.col + deed.w < startCol ||
-          deed.col > endCol ||
-          deed.row + deed.h < startRow ||
-          deed.row > endRow
-        ) {
-          return; // Culled!
-        }
-
-        const sx = Math.floor(deed.col * tilePx - camera.x);
-        const sy = Math.floor(deed.row * tilePx - camera.y);
-        const sw = deed.w * tilePx;
-        const sh = deed.h * tilePx;
-
-        // Building shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.45)';
-        ctx.fillRect(sx + 4, sy + 4, sw, sh);
-
-        // Building walls
-        ctx.fillStyle = deed.ownerTokenId ? '#1e293b' : '#0f172a';
-        ctx.fillRect(sx + 2, sy + 2, sw - 4, sh - 4);
-
-        // Roof
-        ctx.fillStyle = deed.roofColor;
-        ctx.fillRect(sx + 4, sy + 4, sw - 8, sh * 0.55);
-
-        // Lit Windows
-        ctx.fillStyle = deed.ownerTokenId ? '#fde047' : '#475569';
-        const winSize = Math.max(3, 3 * zoomScale);
-        ctx.fillRect(sx + sw * 0.22, sy + sh * 0.65, winSize, winSize);
-        ctx.fillRect(sx + sw * 0.62, sy + sh * 0.65, winSize, winSize);
-
-        // Deed Tag Overhead
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-        ctx.fillRect(sx + 2, sy - 7 * zoomScale, sw - 4, 6.5 * zoomScale);
-        ctx.fillStyle = deed.ownerTokenId ? '#4ade80' : '#facc15';
-        ctx.font = `bold ${Math.max(8, 4.5 * zoomScale)}px monospace`;
-        ctx.textAlign = 'center';
-        ctx.fillText(deed.code, sx + sw / 2, sy - 2 * zoomScale);
-      });
-
-      // 3. Draw Pre-Built Downtown Landmarks (Casino, Hospital, Pixel Mart, Plaza, Docks)
-      landmarks.forEach(lm => {
-        if (
-          lm.col + lm.w < startCol ||
-          lm.col > endCol ||
-          lm.row + lm.h < startRow ||
-          lm.row > endRow
-        ) {
-          return; // Culled!
-        }
-
-        const sx = Math.floor(lm.col * tilePx - camera.x);
-        const sy = Math.floor(lm.row * tilePx - camera.y);
-        const sw = lm.w * tilePx;
-        const sh = lm.h * tilePx;
-
-        // Drop shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(sx + 6, sy + 6, sw, sh);
-
-        // Main Structure
-        ctx.fillStyle = lm.wallColor;
-        ctx.fillRect(sx, sy, sw, sh);
-
-        // Roof Trim
-        ctx.fillStyle = lm.roofColor;
-        ctx.fillRect(sx + 3, sy + 3, sw - 6, sh * 0.45);
-
-        // Animated Neon Border for APE CASINO
-        if (lm.id === 'APE CASINO') {
-          ctx.strokeStyle = tickCount % 20 < 10 ? '#facc15' : '#ec4899';
-          ctx.lineWidth = Math.max(2, zoomScale);
-          ctx.strokeRect(sx + 2, sy + 2, sw - 4, sh - 4);
-        }
-
-        // Entrance Door
-        ctx.fillStyle = lm.accent;
-        ctx.fillRect(sx + sw / 2 - 5 * zoomScale, sy + sh - 7 * zoomScale, 10 * zoomScale, 7 * zoomScale);
-
-        // Landmark Title Banner
-        ctx.fillStyle = 'rgba(9, 13, 22, 0.92)';
-        ctx.fillRect(sx, sy - 9 * zoomScale, sw, 8 * zoomScale);
-        ctx.fillStyle = lm.accent;
-        ctx.font = `bold ${Math.max(9, 4.8 * zoomScale)}px monospace`;
-        ctx.textAlign = 'center';
-        ctx.fillText(lm.title, sx + sw / 2, sy - 3 * zoomScale);
-      });
-
-      // 4. Draw Tap-to-Move Target Indicator
-      if (tapTarget) {
-        const tx = Math.floor(tapTarget.x * tilePx - camera.x);
-        const ty = Math.floor(tapTarget.y * tilePx - camera.y);
-        ctx.strokeStyle = '#38bdf8';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(tx, ty, 5 * zoomScale + (tickCount % 10), 0, Math.PI * 2);
-        ctx.stroke();
-      }
-
-      // 5. Draw Citizens from our Single Pixel Sprite Atlas
-      NFT_CITIZENS.forEach((cit, idx) => {
-        if (
-          cit.x < startCol - 1 ||
-          cit.x > endCol + 1 ||
-          cit.y < startRow - 1 ||
-          cit.y > endRow + 1
-        ) {
-          return; // Culled!
-        }
-
-        const cx = Math.floor(cit.x * tilePx - camera.x);
-        const cy = Math.floor(cit.y * tilePx - camera.y);
-        const spriteSize = Math.floor(18 * zoomScale);
-
-        // Walking bob animation
-        const bobOffset = Math.sin(tickCount * 0.25 + idx) * (1.2 * zoomScale);
-
-        // Character Ground Shadow
-        ctx.fillStyle = 'rgba(0,0,0,0.45)';
-        ctx.beginPath();
-        ctx.ellipse(cx, cy + spriteSize * 0.42, spriteSize * 0.35, spriteSize * 0.16, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Highlight Ring around Active Player
-        if (idx === activeCharacterIndex) {
-          ctx.strokeStyle = '#facc15';
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.ellipse(cx, cy + spriteSize * 0.42, spriteSize * 0.48, spriteSize * 0.22, 0, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-
-        // Draw Sprite from Offscreen Atlas
-        ctx.drawImage(
-          atlasCanvas,
-          idx * 16,
-          0,
-          16,
-          16,
-          Math.floor(cx - spriteSize / 2),
-          Math.floor(cy - spriteSize / 2 + bobOffset),
-          spriteSize,
-          spriteSize
-        );
-
-        // Nameplate Tag
-        ctx.font = `bold ${Math.max(8, 4.2 * zoomScale)}px Inter, sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.fillStyle = idx === activeCharacterIndex ? '#fde047' : '#e2e8f0';
-        ctx.fillText(cit.code, cx, cy + spriteSize * 0.68);
-
-        // Pixel Speech Bubble (if active)
-        if (cit.speechTimer > 0 && cit.speech) {
-          ctx.font = `600 ${Math.max(9, 4.2 * zoomScale)}px Inter, sans-serif`;
-          const textWidth = ctx.measureText(cit.speech).width;
-          const padX = 6 * zoomScale;
-          const boxW = textWidth + padX * 2;
-          const boxH = 10 * zoomScale;
-          const boxX = cx - boxW / 2;
-          const boxY = cy - spriteSize * 0.85 - boxH;
-
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.92)';
-          ctx.fillRect(boxX, boxY, boxW, boxH);
-          ctx.strokeStyle = idx === activeCharacterIndex ? '#facc15' : '#38bdf8';
-          ctx.lineWidth = 1.5;
-          ctx.strokeRect(boxX, boxY, boxW, boxH);
-
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(cit.speech, cx, boxY + boxH * 0.72);
-        }
-      });
-    }
-
-    /********************************************************************
-     * 7. INTERACTION HANDLERS (TAP DEEDS, LANDMARKS, SLOTS, MODALS)
-     ********************************************************************/
-    let selectedDeed = null;
-
-    canvas.addEventListener('pointerdown', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left + camera.x;
-      const clickY = e.clientY - rect.top + camera.y;
-      const tilePx = BASE_TILE_SIZE * zoomScale;
-
-      const tileCol = clickX / tilePx;
-      const tileRow = clickY / tilePx;
-
-      // 1. Check if user tapped a Residential Deed Plot
-      const hitDeed = plotDeeds.find(
-        d => tileCol >= d.col && tileCol <= d.col + d.w && tileRow >= d.row && tileRow <= d.row + d.h
-      );
-      if (hitDeed) {
-        openDeedModal(hitDeed);
-        return;
-      }
-
-      // 2. Check if user tapped a Downtown Landmark
-      const hitLandmark = landmarks.find(
-        l => tileCol >= l.col && tileCol <= l.col + l.w && tileRow >= l.row && tileRow <= l.row + l.h
-      );
-      if (hitLandmark) {
-        openLandmarkModal(hitLandmark);
-        return;
-      }
-
-      // 3. Otherwise, Tap-to-Move Character to that coordinate
-      if (isWalkable(tileCol, tileRow)) {
-        tapTarget = { x: tileCol, y: tileRow };
-      }
-    });
-
-    function openDeedModal(deed) {
-      selectedDeed = deed;
-      document.getElementById('deedModalTitle').textContent = `PLOT DEED ${deed.code}`;
-      document.getElementById('deedZoneType').textContent = deed.zoneType;
-      document.getElementById('deedOwnerName').textContent =
-        deed.ownerCitizen || 'Unclaimed (Available to Mint)';
-      document.getElementById('deedYieldText').textContent = `+${deed.level * 15} $APE / day (Level ${deed.level})`;
-      document.getElementById('deedCoordsText').textContent = `(X: ${deed.col}, Y: ${deed.row})`;
-
-      const actionBtn = document.getElementById('btnClaimOrUpgradeDeed');
-      const activeCit = NFT_CITIZENS[activeCharacterIndex];
-      if (!deed.ownerTokenId) {
-        actionBtn.textContent = `⚡ Claim Deed for ${activeCit.code} (Free)`;
-      } else {
-        actionBtn.textContent = `🔼 Upgrade Plot Level (50 $APE)`;
-      }
-
-      document.getElementById('deedModal').classList.remove('hidden');
-    }
-
-    document.getElementById('btnCloseDeedModal').addEventListener('click', () => {
-      document.getElementById('deedModal').classList.add('hidden');
-    });
-
-    document.getElementById('btnClaimOrUpgradeDeed').addEventListener('click', () => {
-      if (!selectedDeed) return;
-      const activeCit = NFT_CITIZENS[activeCharacterIndex];
-
-      if (!selectedDeed.ownerTokenId) {
-        selectedDeed.ownerTokenId = activeCit.tokenId;
-        selectedDeed.ownerCitizen = `${activeCit.code} (${activeCit.name})`;
-        selectedDeed.roofColor = '#10b981';
-        pushTickerNews(`Citizen ${activeCit.code} minted Deed ${selectedDeed.code} on ApeChain!`);
-      } else if (apeBalance >= 50) {
-        apeBalance -= 50;
-        selectedDeed.level += 1;
-        selectedDeed.roofColor = '#a855f7';
-        updateApeBalanceUI();
-        pushTickerNews(`Deed ${selectedDeed.code} upgraded to Level ${selectedDeed.level}!`);
-      }
-      openDeedModal(selectedDeed);
-    });
-
-    document.getElementById('btnWalkToDeed').addEventListener('click', () => {
-      if (!selectedDeed) return;
-      tapTarget = { x: selectedDeed.col + 1, y: selectedDeed.row + 2.2 };
-      document.getElementById('deedModal').classList.add('hidden');
-    });
-
-    function openLandmarkModal(lm) {
-      document.getElementById('landmarkModalTitle').textContent = lm.title;
-      document.getElementById('landmarkModalDesc').textContent = lm.desc;
-      document.getElementById('landmarkModal').classList.remove('hidden');
-    }
-
-    document.getElementById('btnCloseLandmarkModal').addEventListener('click', () => {
-      document.getElementById('landmarkModal').classList.add('hidden');
-    });
-
-    // Casino Slot Machine Mini-Game
-    const SLOT_ICONS = ['🦍', '💎', '🍒', '7️⃣', '🍌'];
-    document.getElementById('btnSpinSlots').addEventListener('click', () => {
-      const resultEl = document.getElementById('slotResultText');
-      if (apeBalance < 10) {
-        resultEl.textContent = 'Not enough $APE! Visit your Deed plot for passive yield.';
-        return;
-      }
-      apeBalance -= 10;
-      const r1 = SLOT_ICONS[Math.floor(Math.random() * SLOT_ICONS.length)];
-      const r2 = SLOT_ICONS[Math.floor(Math.random() * SLOT_ICONS.length)];
-      const r3 = SLOT_ICONS[Math.floor(Math.random() * SLOT_ICONS.length)];
-
-      document.getElementById('slotReels').innerHTML = `<span>${r1}</span><span>${r2}</span><span>${r3}</span>`;
-
-      const activeCit = NFT_CITIZENS[activeCharacterIndex];
-      if (r1 === r2 && r2 === r3) {
-        apeBalance += 150;
-        resultEl.textContent = `🎉 MEGA JACKPOT! +150 $APE!`;
-        activeCit.speech = 'JACKPOT AT THE APE CASINO! +150 $APE!';
-        activeCit.speechTimer = 240;
-        pushTickerNews(`JACKPOT! Citizen ${activeCit.code} won 150 $APE at Ape Casino!`);
-      } else if (r1 === r2 || r2 === r3 || r1 === r3) {
-        apeBalance += 30;
-        resultEl.textContent = `✨ Nice pair! You won 30 $APE!`;
-        activeCit.speech = 'Just hit a 30 $APE win at the slots!';
-        activeCit.speechTimer = 180;
-      } else {
-        resultEl.textContent = `No match — spin again!`;
-      }
-      updateApeBalanceUI();
-    });
-
-    function updateApeBalanceUI() {
-      document.getElementById('apeBalanceText').textContent = `${apeBalance} $APE`;
-    }
-
-    /********************************************************************
-     * 8. HUD CONTROLS (AI MODE, 24/7 STREAM CAM, ZOOM, D-PAD, GITHUB MODAL)
-     ********************************************************************/
-    const btnToggleAI = document.getElementById('btnToggleAI');
-    btnToggleAI.addEventListener('click', () => {
-      isPlayerAutopilot = !isPlayerAutopilot;
-      if (isPlayerAutopilot) {
-        btnToggleAI.textContent = '🤖 Mode: AI Autopilot';
-        btnToggleAI.className =
-          'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border bg-amber-500/20 text-amber-300 border-amber-500/40';
-        pushTickerNews(`Citizen ${NFT_CITIZENS[activeCharacterIndex].code} switched to AI Autopilot mode.`);
-      } else {
-        btnToggleAI.textContent = '🎮 Mode: Player';
-        btnToggleAI.className =
-          'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border bg-emerald-600/20 text-emerald-300 border-emerald-500/40';
-      }
-    });
-
-    const btnToggleStream = document.getElementById('btnToggleStream');
-    const streamBadge = document.getElementById('streamOverlayBadge');
-    btnToggleStream.addEventListener('click', () => {
-      isStreamDirectorMode = !isStreamDirectorMode;
-      if (isStreamDirectorMode) {
-        streamBadge.classList.remove('hidden');
-        btnToggleStream.className =
-          'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border bg-red-600 text-white border-red-400 shadow-lg';
-        pushTickerNews('24/7 YouTube Stream Director Camera Activated!');
-      } else {
-        streamBadge.classList.add('hidden');
-        btnToggleStream.className =
-          'px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all border bg-slate-800 text-slate-300 border-slate-700';
-      }
-    });
-
-    // Zoom Controls
-    document.getElementById('btnZoomIn').addEventListener('click', () => {
-      zoomScale = Math.min(3.5, zoomScale + 0.5);
-      document.getElementById('zoomLevelText').textContent = `${zoomScale}x`;
-    });
-    document.getElementById('btnZoomOut').addEventListener('click', () => {
-      zoomScale = Math.max(1, zoomScale - 0.5);
-      document.getElementById('zoomLevelText').textContent = `${zoomScale}x`;
-    });
-
-    // Fast Travel Buttons
-    document.getElementById('btnJumpCasino').addEventListener('click', () => {
-      const cit = NFT_CITIZENS[activeCharacterIndex];
-      cit.x = 20;
-      cit.y = 14.5;
-      tapTarget = null;
-    });
-    document.getElementById('btnJumpMyDeed').addEventListener('click', () => {
-      const cit = NFT_CITIZENS[activeCharacterIndex];
-      const deed = plotDeeds.find(d => d.deedId === cit.homeDeedId) || plotDeeds[0];
-      cit.x = deed.col + 1;
-      cit.y = deed.row + 2.2;
-      tapTarget = null;
-      openDeedModal(deed);
-    });
-
-    // GitHub + Supabase Guide Modal
-    document.getElementById('btnOpenGitHubGuide').addEventListener('click', () => {
-      document.getElementById('githubModal').classList.remove('hidden');
-    });
-    document.getElementById('btnCloseGitHubModal').addEventListener('click', () => {
-      document.getElementById('githubModal').classList.add('hidden');
-    });
-    document.getElementById('btnCopySQL').addEventListener('click', () => {
-      const sqlText = document.getElementById('sqlCodeBlock').textContent;
-      const tempInput = document.createElement('textarea');
-      tempInput.value = sqlText;
-      document.body.appendChild(tempInput);
-      tempInput.select();
-      document.execCommand('copy');
-      document.body.removeChild(tempInput);
-      document.getElementById('btnCopySQL').textContent = '✅ Copied!';
-      setTimeout(() => {
-        document.getElementById('btnCopySQL').textContent = '📋 Copy SQL';
-      }, 2000);
-    });
-
-    // D-Pad Touch & Mouse Support
-    document.querySelectorAll('.dpad-btn').forEach(btn => {
-      const dir = btn.getAttribute('data-dir');
-      const startMove = (e) => {
-        e.preventDefault();
-        keysPressed[dir] = true;
-      };
-      const endMove = (e) => {
-        e.preventDefault();
-        keysPressed[dir] = false;
-      };
-      btn.addEventListener('pointerdown', startMove);
-      btn.addEventListener('pointerup', endMove);
-      btn.addEventListener('pointerleave', endMove);
-    });
-
-    // Keyboard WASD + Arrows
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keysPressed.up = true;
-      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keysPressed.down = true;
-      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keysPressed.left = true;
-      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keysPressed.right = true;
-    });
-    window.addEventListener('keyup', (e) => {
-      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keysPressed.up = false;
-      if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keysPressed.down = false;
-      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keysPressed.left = false;
-      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keysPressed.right = false;
-    });
-
-    /********************************************************************
-     * 9. MAIN 60FPS GAME LOOP
-     ********************************************************************/
-    function gameLoop() {
-      tickCount++;
-      updateCitizens();
-      renderWorld();
-      requestAnimationFrame(gameLoop);
-    }
-
-    window.onload = function () {
-      resizeCanvas();
-      gameLoop();
-    };
-  </script>
+// Boot Engine
+resize();
+bakeAllAssets();
+bakeCharacters();
+initWorldMap();
+requestAnimationFrame(renderLoop);
+</script>
 </body>
 </html>
